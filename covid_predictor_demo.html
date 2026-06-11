@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CovidSense — Symptom Risk Predictor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy-900: #060e1e; --navy-800: #0b1628; --navy-700: #101f38;
+      --navy-600: #1a2d4f; --navy-400: #2e4872;
+      --teal-500: #00c9b1; --teal-400: #1ff0d4; --teal-200: #a0f5eb;
+      --amber-500: #f59e0b; --amber-400: #fbbf24;
+      --red-500: #ef4444; --red-400: #f87171;
+      --green-500: #10b981; --green-400: #34d399;
+      --text-primary: #e8f0fe; --text-secondary: #8fa8cc; --text-muted: #4e6b93;
+      --radius-sm: 6px; --radius-md: 12px; --radius-lg: 20px; --radius-xl: 32px;
+      --shadow-card: 0 24px 64px rgba(0,0,0,.55), 0 4px 16px rgba(0,0,0,.3);
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      background-color: var(--navy-900);
+      color: var(--text-primary);
+      min-height: 100vh; overflow-x: hidden; line-height: 1.6;
+    }
+    .bg-rings { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .ring { position: absolute; border-radius: 50%; border: 1px solid rgba(0,201,177,.08); top: 50%; left: 50%; transform: translate(-50%,-50%); animation: pulse-ring 8s ease-in-out infinite; }
+    .ring-1 { width: 520px; height: 520px; animation-delay: 0s; }
+    .ring-2 { width: 820px; height: 820px; animation-delay: 1.5s; }
+    .ring-3 { width: 1100px; height: 1100px; animation-delay: 3s; }
+    @keyframes pulse-ring { 0%,100%{opacity:.5;transform:translate(-50%,-50%) scale(1)} 50%{opacity:.2;transform:translate(-50%,-50%) scale(1.04)} }
+    @media(prefers-reduced-motion:reduce){.ring{animation:none}}
+    .site-header { position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:20px 40px;border-bottom:1px solid rgba(255,255,255,.06);backdrop-filter:blur(12px); }
+    .logo { display:flex;align-items:center;gap:10px; }
+    .logo-mark { font-size:22px;color:var(--teal-500);filter:drop-shadow(0 0 8px var(--teal-500)); }
+    .logo-text { font-weight:700;font-size:18px;letter-spacing:-.3px;color:var(--text-primary); }
+    .header-nav { display:flex;align-items:center;gap:10px; }
+    .nav-tag { font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);padding:4px 10px;border-radius:100px; }
+    .status-dot { width:8px;height:8px;border-radius:50%;background:var(--green-400);box-shadow:0 0 8px var(--green-400);animation:blink 2.5s ease-in-out infinite; }
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+    .nav-status { font-size:12px;color:var(--green-400);font-weight:600; }
+    .main-wrap { position:relative;z-index:5;max-width:760px;margin:0 auto;padding:48px 24px 80px; }
+    .hero { text-align:center;margin-bottom:48px; }
+    .hero-eyebrow { font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--teal-500);margin-bottom:14px; }
+    .hero-title { font-size:clamp(42px,8vw,72px);font-weight:700;line-height:1.05;letter-spacing:-2px;background:linear-gradient(135deg,var(--text-primary) 30%,var(--teal-400) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:18px; }
+    .hero-sub { color:var(--text-secondary);font-size:16px;max-width:520px;margin:0 auto;line-height:1.7; }
+    .card-wrap { position:relative; }
+    .form-card { background:linear-gradient(160deg,var(--navy-700) 0%,var(--navy-800) 100%);border:1px solid rgba(255,255,255,.09);border-radius:var(--radius-xl);padding:40px;box-shadow:var(--shadow-card);transition:opacity .3s,transform .3s; }
+    .form-card.hidden-out { opacity:0;transform:translateY(-12px);pointer-events:none; }
+    .form-grid { display:grid;grid-template-columns:1fr 1fr;gap:24px 32px;margin-bottom:36px; }
+    .field-city { grid-column:1 / -1; }
+    .field-label { display:block;font-size:11px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px; }
+    .input-shell { position:relative;display:flex;align-items:center; }
+    .field-input { width:100%;background:var(--navy-900);border:1px solid rgba(255,255,255,.1);border-radius:var(--radius-md);color:var(--text-primary);font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:600;padding:14px 48px 14px 16px;outline:none;transition:border-color .2s,box-shadow .2s;-moz-appearance:textfield; }
+    .field-input::-webkit-outer-spin-button,.field-input::-webkit-inner-spin-button{-webkit-appearance:none}
+    .field-input::placeholder{color:var(--text-muted);font-weight:400;font-size:14px}
+    .field-input:focus{border-color:var(--teal-500);box-shadow:0 0 0 3px rgba(0,201,177,.15)}
+    .input-unit{position:absolute;right:14px;font-size:11px;color:var(--text-muted);letter-spacing:1px;pointer-events:none}
+    .pill-group{display:flex;gap:8px}
+    .pill{flex:1;background:var(--navy-900);border:1px solid rgba(255,255,255,.1);border-radius:var(--radius-md);color:var(--text-secondary);font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:500;padding:12px 8px;cursor:pointer;transition:all .18s}
+    .pill:hover{border-color:var(--teal-500);color:var(--teal-200);background:rgba(0,201,177,.06)}
+    .pill.selected{background:rgba(0,201,177,.14);border-color:var(--teal-500);color:var(--teal-400);font-weight:600;box-shadow:0 0 12px rgba(0,201,177,.2)}
+    .select-shell{position:relative}
+    .field-select{width:100%;appearance:none;background:var(--navy-900);border:1px solid rgba(255,255,255,.1);border-radius:var(--radius-md);color:var(--text-primary);font-family:'Space Grotesk',sans-serif;font-size:15px;padding:14px 40px 14px 16px;cursor:pointer;outline:none;transition:border-color .2s,box-shadow .2s}
+    .field-select option{background:var(--navy-700)}
+    .field-select:focus{border-color:var(--teal-500);box-shadow:0 0 0 3px rgba(0,201,177,.15)}
+    .select-arrow{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none;font-size:16px}
+    .predict-btn{width:100%;position:relative;background:linear-gradient(135deg,var(--teal-500) 0%,#009688 100%);border:none;border-radius:var(--radius-md);color:#001a15;font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;letter-spacing:.3px;padding:18px;cursor:pointer;transition:opacity .2s,transform .15s,box-shadow .2s;overflow:hidden}
+    .predict-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.15) 0%,transparent 60%);opacity:0;transition:opacity .2s}
+    .predict-btn:hover:not(:disabled)::before{opacity:1}
+    .predict-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,201,177,.4)}
+    .predict-btn:active:not(:disabled){transform:translateY(0)}
+    .predict-btn:disabled{opacity:.35;cursor:not-allowed}
+    .predict-btn.loading .btn-text{opacity:0}
+    .predict-btn.loading .btn-spinner{display:block}
+    .btn-spinner{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:22px;height:22px;border:2px solid rgba(0,26,21,.3);border-top-color:#001a15;border-radius:50%;animation:spin .7s linear infinite}
+    @keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+    .result-panel{position:absolute;top:0;left:0;right:0;background:linear-gradient(160deg,var(--navy-700) 0%,var(--navy-800) 100%);border:1px solid rgba(255,255,255,.09);border-radius:var(--radius-xl);box-shadow:var(--shadow-card);padding:48px 40px 40px;animation:slide-up .45s cubic-bezier(.2,.8,.4,1)}
+    .result-panel[hidden]{display:none}
+    @keyframes slide-up{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+    .result-inner{text-align:center}
+    .result-icon-wrap{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;transition:all .3s}
+    .result-icon-wrap.positive{background:rgba(239,68,68,.12);box-shadow:0 0 32px rgba(239,68,68,.25)}
+    .result-icon-wrap.negative{background:rgba(16,185,129,.12);box-shadow:0 0 32px rgba(16,185,129,.25)}
+    .result-icon{width:44px;height:44px}
+    .result-verdict{font-size:38px;font-weight:700;letter-spacing:-1.5px;line-height:1;margin-bottom:8px}
+    .result-verdict.positive{color:var(--red-400)}
+    .result-verdict.negative{color:var(--green-400)}
+    .result-label{font-size:14px;color:var(--text-secondary);margin-bottom:36px}
+    .confidence-bar-wrap{margin-bottom:32px}
+    .confidence-labels{display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:8px}
+    #conf-pct{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text-secondary)}
+    .confidence-track{height:6px;background:rgba(255,255,255,.07);border-radius:99px;overflow:hidden}
+    .confidence-fill{height:100%;width:0;border-radius:99px;transition:width 1s cubic-bezier(.2,.8,.4,1);background:linear-gradient(90deg,var(--teal-500),var(--teal-400))}
+    .confidence-fill.high-risk{background:linear-gradient(90deg,var(--amber-500),var(--red-400))}
+    .result-meta{display:flex;gap:0;border:1px solid rgba(255,255,255,.07);border-radius:var(--radius-md);overflow:hidden;margin-bottom:24px}
+    .meta-item{flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+    .meta-item+.meta-item{border-left:1px solid rgba(255,255,255,.07)}
+    .meta-key{font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-muted)}
+    .meta-val{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-secondary)}
+    .disclaimer{font-size:12px;color:var(--text-muted);background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.15);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:28px;line-height:1.6}
+    .reset-btn{background:transparent;border:1px solid rgba(255,255,255,.12);border-radius:var(--radius-md);color:var(--text-secondary);font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:500;padding:12px 28px;cursor:pointer;transition:all .2s}
+    .reset-btn:hover{border-color:var(--teal-500);color:var(--teal-400);background:rgba(0,201,177,.06)}
+    .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--navy-600);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius-md);padding:14px 20px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:100;animation:toast-in .3s ease;min-width:280px;max-width:480px}
+    .toast[hidden]{display:none}
+    @keyframes toast-in{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+    .toast-icon{color:var(--red-400);font-weight:700}
+    .toast-msg{font-size:13px;color:var(--text-secondary)}
+    .info-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px}
+    .info-item{display:flex;gap:14px;align-items:flex-start;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius-lg);padding:20px}
+    .info-icon{font-size:22px;flex-shrink:0;margin-top:2px}
+    .info-item strong{font-size:14px;display:block;margin-bottom:4px}
+    .info-item p{font-size:12px;color:var(--text-muted);line-height:1.5}
+    .site-footer{position:relative;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:20px 40px;border-top:1px solid rgba(255,255,255,.05);font-size:12px;color:var(--text-muted)}
+    @media(max-width:640px){
+      .site-header{padding:16px 20px}.nav-tag{display:none}
+      .main-wrap{padding:32px 16px 60px}
+      .form-card,.result-panel{padding:28px 20px}
+      .form-grid{grid-template-columns:1fr;gap:20px}.field-city{grid-column:auto}
+      .info-strip{grid-template-columns:1fr}
+      .site-footer{flex-direction:column;gap:6px;text-align:center}
+      .result-meta{flex-direction:column}.meta-item+.meta-item{border-left:none;border-top:1px solid rgba(255,255,255,.07)}
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-rings" aria-hidden="true">
+  <div class="ring ring-1"></div><div class="ring ring-2"></div><div class="ring ring-3"></div>
+</div>
+
+<header class="site-header">
+  <div class="logo">
+    <span class="logo-mark">⬡</span>
+    <span class="logo-text">CovidSense</span>
+  </div>
+  <nav class="header-nav">
+    <span class="nav-tag">ML Model: Gaussian Naïve Bayes</span>
+    <span class="status-dot"></span>
+    <span class="nav-status">Live</span>
+  </nav>
+</header>
+
+<main class="main-wrap">
+  <section class="hero">
+    <p class="hero-eyebrow">Symptom Risk Assessment</p>
+    <h1 class="hero-title">Is it COVID-19?</h1>
+    <p class="hero-sub">Enter your symptoms below. Our trained model will assess your risk in milliseconds — no data leaves your browser without your action.</p>
+  </section>
+
+  <div class="card-wrap">
+    <div class="form-card" id="form-card">
+      <div class="form-grid">
+        <div class="field-group field-age">
+          <label class="field-label" for="age">Age</label>
+          <div class="input-shell">
+            <input class="field-input" type="number" id="age" placeholder="e.g. 34" min="1" max="120" required />
+            <span class="input-unit">yrs</span>
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Gender</label>
+          <div class="pill-group" role="group">
+            <button type="button" class="pill" data-field="gender" data-value="Male">Male</button>
+            <button type="button" class="pill" data-field="gender" data-value="Female">Female</button>
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Fever</label>
+          <div class="pill-group" role="group">
+            <button type="button" class="pill" data-field="fever" data-value="Yes">Yes</button>
+            <button type="button" class="pill" data-field="fever" data-value="No">No</button>
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Cough</label>
+          <div class="pill-group" role="group">
+            <button type="button" class="pill" data-field="cough" data-value="Yes">Yes</button>
+            <button type="button" class="pill" data-field="cough" data-value="No">No</button>
+          </div>
+        </div>
+        <div class="field-group field-city">
+          <label class="field-label" for="city">City</label>
+          <div class="select-shell">
+            <select class="field-select" id="city" required>
+              <option value="" disabled selected>Select city</option>
+              <option value="Bangalore">Bangalore</option>
+              <option value="Kolkata">Kolkata</option>
+              <option value="Mumbai">Mumbai</option>
+              <option value="Delhi">Delhi</option>
+            </select>
+            <span class="select-arrow">▾</span>
+          </div>
+        </div>
+      </div>
+      <button class="predict-btn" id="predict-btn" type="button" disabled>
+        <span class="btn-text">Analyse Symptoms</span>
+        <span class="btn-spinner" aria-hidden="true"></span>
+      </button>
+    </div>
+
+    <div class="result-panel" id="result-panel" aria-live="polite" hidden>
+      <div class="result-inner">
+        <div class="result-icon-wrap" id="result-icon-wrap">
+          <svg class="result-icon" id="result-icon" viewBox="0 0 48 48" fill="none"></svg>
+        </div>
+        <div class="result-verdict" id="result-verdict">—</div>
+        <p class="result-label" id="result-label">Assessment complete</p>
+        <div class="confidence-bar-wrap">
+          <div class="confidence-labels">
+            <span>COVID Risk</span>
+            <span id="conf-pct">0%</span>
+          </div>
+          <div class="confidence-track">
+            <div class="confidence-fill" id="confidence-fill"></div>
+          </div>
+        </div>
+        <div class="result-meta">
+          <div class="meta-item">
+            <span class="meta-key">Model</span>
+            <span class="meta-val">Gaussian Naïve Bayes</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-key">Features</span>
+            <span class="meta-val">age · gender · fever · cough · city</span>
+          </div>
+        </div>
+        <p class="disclaimer">⚠ This tool is for educational purposes only and does not constitute medical advice. Always consult a qualified healthcare professional.</p>
+        <button class="reset-btn" id="reset-btn" type="button">Run another assessment</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="alert" hidden>
+    <span class="toast-icon">✕</span>
+    <span class="toast-msg" id="toast-msg">Something went wrong.</span>
+  </div>
+
+  <section class="info-strip">
+    <div class="info-item">
+      <span class="info-icon">🧬</span>
+      <div><strong>Gaussian Naïve Bayes</strong><p>Probabilistic classifier trained on symptom-city data.</p></div>
+    </div>
+    <div class="info-item">
+      <span class="info-icon">⚡</span>
+      <div><strong>Instant inference</strong><p>Model runs server-side in under 10 ms.</p></div>
+    </div>
+    <div class="info-item">
+      <span class="info-icon">🔒</span>
+      <div><strong>No personal storage</strong><p>Inputs are used only for the prediction call.</p></div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <span>CovidSense — ML Demo</span>
+  <span>Flask · scikit-learn · Gaussian NB</span>
+</footer>
+
+<script>
+  /* Demo mode: simulate backend when not running Flask */
+  const DEMO_MODE = true; // set false when Flask server is running
+
+  const formCard   = document.getElementById('form-card');
+  const resultPanel= document.getElementById('result-panel');
+  const predictBtn = document.getElementById('predict-btn');
+  const resetBtn   = document.getElementById('reset-btn');
+  const ageInput   = document.getElementById('age');
+  const citySelect = document.getElementById('city');
+  const toast      = document.getElementById('toast');
+  const toastMsg   = document.getElementById('toast-msg');
+  const selections = { gender: null, fever: null, cough: null };
+
+  document.querySelectorAll('.pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const field = btn.dataset.field;
+      document.querySelectorAll(`.pill[data-field="${field}"]`).forEach(p => p.classList.remove('selected'));
+      btn.classList.add('selected');
+      selections[field] = btn.dataset.value;
+      checkReady();
+    });
+  });
+
+  ageInput.addEventListener('input', checkReady);
+  citySelect.addEventListener('change', checkReady);
+
+  function checkReady() {
+    const age = parseInt(ageInput.value, 10);
+    predictBtn.disabled = !(
+      !isNaN(age) && age >= 1 && age <= 120 &&
+      citySelect.value &&
+      selections.gender && selections.fever && selections.cough
+    );
+  }
+
+  predictBtn.addEventListener('click', async () => {
+    const payload = {
+      age: parseInt(ageInput.value, 10),
+      gender: selections.gender, fever: selections.fever,
+      cough: selections.cough, city: citySelect.value,
+    };
+    setLoading(true);
+
+    try {
+      let data;
+      if (DEMO_MODE) {
+        // Simulate server response based on simple heuristic
+        await new Promise(r => setTimeout(r, 900));
+        const riskScore = (payload.fever === 'Yes' ? 35 : 0) +
+                          (payload.cough === 'Yes' ? 25 : 0) +
+                          (payload.age > 50 ? 20 : 0) +
+                          (payload.city === 'Mumbai' || payload.city === 'Delhi' ? 15 : 5) +
+                          Math.random() * 10;
+        const confidence = Math.min(Math.round(riskScore), 95);
+        data = { prediction: confidence > 60 ? 1 : 0, result: confidence > 60 ? 'Positive' : 'Negative', confidence };
+      } else {
+        const res = await fetch('/predict', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || 'Prediction failed');
+      }
+      showResult(data);
+    } catch (err) {
+      showToast(err.message || 'Could not reach the prediction server.');
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  function showResult(data) {
+    const isPositive = data.prediction === 1;
+    const confidence = data.confidence ?? 0;
+    const verdict = document.getElementById('result-verdict');
+    const label   = document.getElementById('result-label');
+    const iconWrap= document.getElementById('result-icon-wrap');
+    const icon    = document.getElementById('result-icon');
+    const fill    = document.getElementById('confidence-fill');
+    const confPct = document.getElementById('conf-pct');
+
+    verdict.textContent = isPositive ? 'COVID Positive' : 'COVID Negative';
+    verdict.className   = `result-verdict ${isPositive ? 'positive' : 'negative'}`;
+    label.textContent   = isPositive
+      ? 'High-risk indicators detected — please consult a doctor.'
+      : 'Low-risk profile — monitor symptoms and follow guidelines.';
+    iconWrap.className  = `result-icon-wrap ${isPositive ? 'positive' : 'negative'}`;
+
+    icon.innerHTML = isPositive
+      ? `<circle cx="24" cy="24" r="20" stroke="#f87171" stroke-width="2" fill="none"/><path d="M16 16l16 16M32 16L16 32" stroke="#f87171" stroke-width="2.5" stroke-linecap="round"/>`
+      : `<circle cx="24" cy="24" r="20" stroke="#34d399" stroke-width="2" fill="none"/><path d="M15 24l7 7 11-14" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+    confPct.textContent = `${confidence}%`;
+    fill.className = `confidence-fill${isPositive ? ' high-risk' : ''}`;
+    requestAnimationFrame(() => { fill.style.width = `${confidence}%`; });
+
+    formCard.classList.add('hidden-out');
+    setTimeout(() => { formCard.style.display = 'none'; resultPanel.hidden = false; }, 300);
+  }
+
+  resetBtn.addEventListener('click', () => {
+    ageInput.value = ''; citySelect.value = '';
+    selections.gender = selections.fever = selections.cough = null;
+    document.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
+    predictBtn.disabled = true;
+    document.getElementById('confidence-fill').style.width = '0';
+    resultPanel.hidden = true;
+    formCard.style.display = '';
+    setTimeout(() => formCard.classList.remove('hidden-out'), 20);
+  });
+
+  function setLoading(l) { predictBtn.classList.toggle('loading', l); predictBtn.disabled = l; }
+
+  let toastTimer;
+  function showToast(msg) {
+    toastMsg.textContent = msg; toast.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.hidden = true; }, 5000);
+  }
+</script>
+</body>
+</html>
